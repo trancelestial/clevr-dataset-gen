@@ -323,14 +323,19 @@ def render_scene(args,
   # Now make some random objects
   objects, blender_objects = add_random_objects(scene_struct, num_objects, args, camera)
 
-  angle = 90
-  steps = 5
-  for i, a in enumerate(np.linspace(0, angle, steps)):
+  angles = [-90, 90]
+  steps = 10
+  for i, a in enumerate(np.linspace(*angles, steps)):
     # position = bpy.data.objects['Lamp_Key'].location
     # r = R.from_euler(axis, a, degrees=True).as_matrix()
     # r = mathutils.Euler((0.0, math.radians(a), 0.0), 'XYZ')
     r = mathutils.Euler((0.0, math.radians(a), 0.0), 'XYZ')
-    bpy.data.objects['Lamp_Back'].location.rotate(r)
+    # bpy.data.objects['Lamp_Back'].location.rotate(r)
+    # print('----->',bpy.data.objects.items())
+    # print('----->',bpy.data.objects['Area'].location)
+    # bpy.data.objects['Area'].location.rotate(r)
+    bpy.data.objects['Area'].rotation_euler = r
+    # print('----->',bpy.data.objects['Area'].location)
 
     scene_struct['image_index'] = output_index*steps + i
     render_args.filepath = img_template % (output_index*steps + i)
@@ -544,9 +549,9 @@ def render_shadeless(blender_objects, path='flat.png'):
   render_args.use_antialiasing = False
 
   # Move the lights and ground to layer 2 so they don't render
-  utils.set_layer(bpy.data.objects['Lamp_Key'], 2)
-  utils.set_layer(bpy.data.objects['Lamp_Fill'], 2)
-  utils.set_layer(bpy.data.objects['Lamp_Back'], 2)
+  # utils.set_layer(bpy.data.objects['Lamp_Key'], 2)
+  # utils.set_layer(bpy.data.objects['Lamp_Fill'], 2)
+  # utils.set_layer(bpy.data.objects['Lamp_Back'], 2)
   utils.set_layer(bpy.data.objects['Ground'], 2)
 
   # Add random shadeless materials to all objects
@@ -573,9 +578,9 @@ def render_shadeless(blender_objects, path='flat.png'):
     obj.data.materials[0] = mat
 
   # Move the lights and ground back to layer 0
-  utils.set_layer(bpy.data.objects['Lamp_Key'], 0)
-  utils.set_layer(bpy.data.objects['Lamp_Fill'], 0)
-  utils.set_layer(bpy.data.objects['Lamp_Back'], 0)
+  # utils.set_layer(bpy.data.objects['Lamp_Key'], 0)
+  # utils.set_layer(bpy.data.objects['Lamp_Fill'], 0)
+  # utils.set_layer(bpy.data.objects['Lamp_Back'], 0)
   utils.set_layer(bpy.data.objects['Ground'], 0)
 
   # Set the render settings back to what they were
