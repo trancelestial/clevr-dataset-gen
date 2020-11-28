@@ -36,14 +36,14 @@ def parse_args(parser, argv=None):
 # I wonder if there's a better way to do this?
 def delete_object(obj):
   """ Delete a specified blender object """
-  if bpy.app.verision < (2, 80, 0):
+  if bpy.app.version < (2, 80, 0):
     for o in bpy.data.objects:
       o.select = False
     obj.select = True
   else:
     for o in bpy.data.objects:
-      o.set_select(False)
-    obj.set_select(True)
+      o.select_set(False)
+    obj.select_set(True)
 
   bpy.ops.object.delete()
 
