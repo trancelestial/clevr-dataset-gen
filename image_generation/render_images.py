@@ -9,6 +9,9 @@ from __future__ import print_function
 import math, sys, random, argparse, json, os, tempfile
 from datetime import datetime as dt
 from collections import Counter
+import mathutils
+# from scipy.spatial.transform import Rotation as R
+import numpy as np
 
 """
 Renders random scenes using Blender, each with with a random number of objects;
@@ -185,6 +188,7 @@ def main(args):
       output_image=img_path,
       output_scene=scene_path,
       output_blendfile=blend_path,
+      img_template=img_template
     )
 
   # After rendering all images, combine the JSON files for each scene into a
@@ -214,8 +218,10 @@ def render_scene(args,
     output_image='render.png',
     output_scene='render_json',
     output_blendfile=None,
+    img_template='image%d.png'
   ):
 
+  print('--------------------------->', output_image)
   # Load the main blendfile
   bpy.ops.wm.open_mainfile(filepath=args.base_scene_blendfile)
 
@@ -317,21 +323,33 @@ def render_scene(args,
   # Now make some random objects
   objects, blender_objects = add_random_objects(scene_struct, num_objects, args, camera)
 
-  # Render the scene and dump the scene data structure
-  scene_struct['objects'] = objects
-  scene_struct['relationships'] = compute_all_relationships(scene_struct)
-  while True:
-    try:
-      bpy.ops.render.render(write_still=True)
-      break
-    except Exception as e:
-      print(e)
+  angle = 90
+  steps = 5
+  for i, a in enumerate(np.linspace(0, angle, steps)):
+    # position = bpy.data.objects['Lamp_Key'].location
+    # r = R.from_euler(axis, a, degrees=True).as_matrix()
+    # r = mathutils.Euler((0.0, math.radians(a), 0.0), 'XYZ')
+    r = mathutils.Euler((0.0, math.radians(a), 0.0), 'XYZ')
+    bpy.data.objects['Lamp_Back'].location.rotate(r)
 
-  with open(output_scene, 'w') as f:
-    json.dump(scene_struct, f, indent=2)
+    scene_struct['image_index'] = output_index*steps + i
+    render_args.filepath = img_template % (output_index*steps + i)
 
-  if output_blendfile is not None:
-    bpy.ops.wm.save_as_mainfile(filepath=output_blendfile)
+    # Render the scene and dump the scene data structure
+    scene_struct['objects'] = objects
+    scene_struct['relationships'] = compute_all_relationships(scene_struct)
+    while True:
+      try:
+        bpy.ops.render.render(write_still=True)
+        break
+      except Exception as e:
+        print(e)
+
+    with open(output_scene, 'w') as f:
+      json.dump(scene_struct, f, indent=2)
+
+    if output_blendfile is not None:
+      bpy.ops.wm.save_as_mainfile(filepath=output_blendfile)
 
 
 def add_random_objects(scene_struct, num_objects, args, camera):
