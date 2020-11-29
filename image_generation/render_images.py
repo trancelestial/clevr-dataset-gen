@@ -12,6 +12,7 @@ from collections import Counter
 import mathutils
 # from scipy.spatial.transform import Rotation as R
 import numpy as np
+from copy import deepcopy
 
 """
 Renders random scenes using Blender, each with with a random number of objects;
@@ -221,12 +222,39 @@ def render_scene(args,
     img_template='image%d.png'
   ):
 
-  print('--------------------------->', output_image)
+  node_path = '/home/bozidar/uni/prac/repos/clevr-dataset-gen/image_generation/data/NodeGroup.blend'
+  inner_path = 'NodeTree'
+  object_name = 'NodeGroup'
+  # bpy.ops.wm.open_mainfile(filepath='/home/bozidar/uni/prac/repos/clevr-dataset-gen/image_generation/data/NodeGroup.blend')
+  # print('---------------->',bpy.data.objects['Ground'].data.materials.items())
+  # node_group = bpy.data.objects['Ground'].data.materials[0].copy()
+  # print('SCENE MATERIALS: ',bpy.data.materials.items())
+  # print('NODE GROUP: ',node_group)
+  # exit()
   # Load the main blendfile
   bpy.ops.wm.open_mainfile(filepath=args.base_scene_blendfile)
 
   # Load materials
   utils.load_materials(args.material_dir)
+
+  # bpy.ops.wm.append(filepath=os.path.join(node_path, inner_path, object_name),
+  #                   directory=os.path.join(node_path, inner_path),
+  #                   filename=object_name)
+
+  # struct = bpy.data.libraries.load(node_path)
+  # print(struct.values())
+  with bpy.data.libraries.load(node_path) as (data_from, data_to):
+    data_to.objects = data_from.objects
+    # print(data_to)
+    # print(data_from.objects['Ground'].data.materials.items())
+    # print(data_from)
+  print(data_to.objects[0].data.materials[0])
+  node_group = data_to.objects[0].data.materials[0]
+  print(bpy.data.materials.items())
+  # bpy.data.materials.append(node_group)
+  # print(bpy.data.materials.items())
+  print(node_group.inputs)
+  exit()
 
   # Set render arguments so we can get pixel coordinates later.
   # We use functionality specific to the CYCLES renderer so BLENDER_RENDER
@@ -323,13 +351,14 @@ def render_scene(args,
   # Now make some random objects
   objects, blender_objects = add_random_objects(scene_struct, num_objects, args, camera)
 
+  # angles = [-45, 90]
   angles = [-90, 90]
-  steps = 10
+  steps = 5
   for i, a in enumerate(np.linspace(*angles, steps)):
     # position = bpy.data.objects['Lamp_Key'].location
     # r = R.from_euler(axis, a, degrees=True).as_matrix()
     # r = mathutils.Euler((0.0, math.radians(a), 0.0), 'XYZ')
-    r = mathutils.Euler((0.0, math.radians(a), 0.0), 'XYZ')
+    r = mathutils.Euler((math.radians(30), math.radians(a), 0.0), 'XZY')
     # bpy.data.objects['Lamp_Back'].location.rotate(r)
     # print('----->',bpy.data.objects.items())
     # print('----->',bpy.data.objects['Area'].location)
@@ -340,6 +369,44 @@ def render_scene(args,
     scene_struct['image_index'] = output_index*steps + i
     render_args.filepath = img_template % (output_index*steps + i)
 
+    print('SCENE MATERIALS:',bpy.data.materials.items())
+    # print('==================>', objects)
+
+    obj = bpy.context.selected_objects
+    print('==================>', obj)
+    bpy.data.objects['Sphere_0'].select = True
+    # print(bpy)
+
+    # obj = bpy.context.selected_objects
+    # print('==================>', obj)
+    # for obj in bpy.context.selected_objects:
+      # obj.select = False
+    # print('==================>', bpy.context.selected_objects)
+    # print('==================>', bpy.context.active_object)
+    # bpy.context.scene.objects.active = None
+    # print('==================>', bpy.context.active_object)
+
+
+    # exit()
+    bpy.context.scene.objects.active = bpy.data.objects['Ground']
+    obj = bpy.data.objects['Ground']
+    print('+++++++>', node_group)
+    obj.data.materials.clear()
+    obj.data.materials.append(node_group)
+    print('Ground: ',obj.data.materials.items())
+    # print(obj.data.active_material)
+
+    sphere = bpy.data.objects['Sphere_0'] 
+    print('Sphere: ',sphere.data.materials.items())
+
+    # sphere.data.materials.append(node_group)
+    # print('Sphere: ',sphere.data.materials.items())
+    # exit()
+
+    print('---------------->',bpy.data.objects.items())
+
+    # obj.data.materials.
+    # exit()
     # Render the scene and dump the scene data structure
     scene_struct['objects'] = objects
     scene_struct['relationships'] = compute_all_relationships(scene_struct)
@@ -354,6 +421,7 @@ def render_scene(args,
       json.dump(scene_struct, f, indent=2)
 
     if output_blendfile is not None:
+      print('===============================>', output_blendfile)
       bpy.ops.wm.save_as_mainfile(filepath=output_blendfile)
 
 
