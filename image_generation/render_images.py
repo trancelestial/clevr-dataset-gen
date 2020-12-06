@@ -66,6 +66,8 @@ parser.add_argument('--shape_color_combos_json', default=None,
     help="Optional path to a JSON file mapping shape names to a list of " +
          "allowed color names for that shape. This allows rendering images " +
          "for CLEVR-CoGenT.")
+parser.add_argument('--colors_json', default=None,
+    help="If valid path to colors.json file passed, each object picks color from predefined 'rgb' list")
 
 # Settings for objects
 parser.add_argument('--min_objects', default=3, type=int,
@@ -232,7 +234,12 @@ def render_scene(args,
   with bpy.data.libraries.load(node_path) as (data_from, data_to):
     data_to.objects = data_from.objects
     data_to.materials = data_from.materials
+    data_to.node_groups = data_from.node_groups
   node_mat = data_to.materials[0]
+  node_group_elems = data_to.node_groups[0].nodes["ColorRamp"].color_ramp.elements
+  # for i in segm_colors:
+  #   print(list(i.color))
+
 
 
   # Set render arguments so we can get pixel coordinates later.
@@ -330,22 +337,25 @@ def render_scene(args,
   # Now make some random objects
   objects, blender_objects = add_random_objects(scene_struct, num_objects, args, camera)
 
+  # Segmentation materials and colors
   n = len(objects)
   node_mat.node_tree.nodes['Group'].inputs[1].default_value = n
   segm_mat = []
+  segm_color = []
   for i in range(n+1):
     node_mat.node_tree.nodes['Group'].inputs[0].default_value = i
     segm_mat.append(node_mat.copy())
+    segm_color.append(list(node_group_elems[i].color))
   print(segm_mat)
+  print(segm_color)
 
-  # angles = [-45, 90]
-  angles = [-90, 90]
+  angles = [-50, 90]
   steps = 5
   for i, a in enumerate(np.linspace(*angles, steps)):
     # position = bpy.data.objects['Lamp_Key'].location
     # r = R.from_euler(axis, a, degrees=True).as_matrix()
-    # r = mathutils.Euler((0.0, math.radians(a), 0.0), 'XYZ')
-    r = mathutils.Euler((math.radians(30), math.radians(a), 0.0), 'XZY')
+    r = mathutils.Euler((0.0, math.radians(a), 0.0), 'XYZ')
+    # r = mathutils.Euler((math.radians(30), math.radians(a), 0.0), 'XYZ')
     # bpy.data.objects['Lamp_Back'].location.rotate(r)
     # bpy.data.objects['Area'].location.rotate(r)
     bpy.data.objects['Area'].rotation_euler = r
@@ -360,7 +370,11 @@ def render_scene(args,
     # bpy.context.scene.objects.active = None
     # bpy.context.scene.objects.active = bpy.data.objects['Ground']
 
+    print('---------------------------')
+    print(objects)
+    print('---------------------------')
     print(bpy.data.objects.items())
+    print('---------------------------')
 
     # exit()
 
@@ -386,8 +400,6 @@ def render_scene(args,
     s = render_args.filepath
     ind = s.rindex('.')
     render_args.filepath = s[:ind]+'_segm'+s[ind:]
-    # print(render_args.filepath)
-    # exit()
     
     prev_mat = []
 
@@ -395,8 +407,15 @@ def render_scene(args,
     bpy.data.objects['Ground'].data.materials.append(segm_mat[0])
     for i in range(n):
       prev_mat.append(bpy.data.objects[i-n].data.materials[0])
+      scene_name = bpy.data.objects[i-n].name
+      index = -1
+      for obj in objects:
+        if obj['scene_name'] == scene_name:
+          index = obj['index']
+          obj['segm_color'] = segm_color[obj['index']+1]
+      
       bpy.data.objects[i-n].data.materials.clear()
-      bpy.data.objects[i-n].data.materials.append(segm_mat[i+1])
+      bpy.data.objects[i-n].data.materials.append(segm_mat[index+1])
 
     while True:
       try:
@@ -478,15 +497,25 @@ def add_random_objects(scene_struct, num_objects, args, camera):
       if dists_good and margins_good:
         break
 
-    # Choose random color and shape
     if shape_color_combos is None:
       obj_name, obj_name_out = random.choice(object_mapping)
-      color_name, rgba = random.choice(list(color_name_to_rgba.items()))
     else:
       obj_name_out, color_choices = random.choice(shape_color_combos)
-      color_name = random.choice(color_choices)
       obj_name = [k for k, v in object_mapping if v == obj_name_out][0]
-      rgba = color_name_to_rgba[color_name]
+    
+    if args.colors_json is None:
+      # Choose random color and shape
+      if shape_color_combos is None:
+        color_name, rgba = random.choice(list(color_name_to_rgba.items()))
+      else:
+        color_name = random.choice(color_choices)
+        rgba = color_name_to_rgba[color_name]
+    else:
+      with open(args.colors_json, 'r') as f:
+        color_name = 'colors.json'
+        properties = json.load(f)
+        rgba = [float(c) / 255.0 for c in properties['rgb'][i]] + [1.0]
+
 
     # For cube, adjust the size a bit
     if obj_name == 'Cube':
@@ -496,7 +525,7 @@ def add_random_objects(scene_struct, num_objects, args, camera):
     theta = 360.0 * random.random()
 
     # Actually add the object to the scene
-    utils.add_object(args.shape_dir, obj_name, r, (x, y), theta=theta)
+    scene_name = utils.add_object(args.shape_dir, obj_name, r, (x, y), theta=theta)
     obj = bpy.context.object
     blender_objects.append(obj)
     positions.append((x, y, r))
@@ -507,14 +536,18 @@ def add_random_objects(scene_struct, num_objects, args, camera):
 
     # Record data about the object in the scene data structure
     pixel_coords = utils.get_camera_coords(camera, obj.location)
+    # TODO: write amterial props here!
     objects.append({
+      'scene_name': scene_name,
       'shape': obj_name_out,
+      'index': i,
       'size': size_name,
       'material': mat_name_out,
       '3d_coords': tuple(obj.location),
       'rotation': theta,
       'pixel_coords': pixel_coords,
       'color': color_name,
+      'color_rgba': rgba
     })
 
   # Check that all objects are at least partially visible in the rendered image

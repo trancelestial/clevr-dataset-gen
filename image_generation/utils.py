@@ -117,6 +117,8 @@ def add_object(object_dir, name, scale, loc, theta=0):
   bpy.ops.transform.resize(value=(scale, scale, scale))
   bpy.ops.transform.translate(value=(x, y, scale))
 
+  return new_name
+
 
 def load_materials(material_dir):
   """
@@ -130,6 +132,16 @@ def load_materials(material_dir):
     filepath = os.path.join(material_dir, fn, 'NodeTree', name)
     bpy.ops.wm.append(filename=filepath)
 
+# def hsv_to_rgb(h, s, v):
+#   if s == 0.0: return (v, v, v)
+#   i = int(h*6.) # XXX assume int() truncates!
+#   f = (h*6.)-i; p,q,t = v*(1.-s), v*(1.-s*f), v*(1.-s*(1.-f)); i%=6
+#   if i == 0: return (v, t, p)
+#   if i == 1: return (q, v, p)
+#   if i == 2: return (p, v, t)
+#   if i == 3: return (p, q, v)
+#   if i == 4: return (t, p, v)
+#   if i == 5: return (v, p, q)
 
 def add_material(name, **properties):
   """
@@ -172,6 +184,7 @@ def add_material(name, **properties):
 
   # Find and set the "Color" input of the new group node
   for inp in group_node.inputs:
+    print('group node input: ', inp.name)
     if inp.name in properties:
       inp.default_value = properties[inp.name]
 
