@@ -68,6 +68,8 @@ parser.add_argument('--shape_color_combos_json', default=None,
          "for CLEVR-CoGenT.")
 parser.add_argument('--colors_json', default=None,
     help="If valid path to colors.json file passed, each object picks color from predefined 'rgb' list")
+parser.add_argument('--materials_json', default=None,
+    help="If valid path to materials.json file passed, each object picks material name from predefined 'mat' list")
 
 # Settings for objects
 parser.add_argument('--min_objects', default=3, type=int,
@@ -530,8 +532,15 @@ def add_random_objects(scene_struct, num_objects, args, camera):
     blender_objects.append(obj)
     positions.append((x, y, r))
 
-    # Attach a random material
-    mat_name, mat_name_out = random.choice(material_mapping)
+    if args.materials_json is None:
+      # Attach a random material
+      mat_name, mat_name_out = random.choice(material_mapping)
+    else:
+      with open(args.materials_json, 'r') as f:
+        mats = json.load(f)['mat']
+        for m in material_mapping:
+          if m[0] == mats[i]:
+            mat_name, mat_name_out = m 
     utils.add_material(mat_name, Color=rgba)
 
     # Record data about the object in the scene data structure
